@@ -30,17 +30,47 @@ declare global {
 
 export function getPhantomProvider(): PhantomProvider | undefined {
   if (typeof window === "undefined") return undefined;
-  return window.solana?.isPhantom ? window.solana : window.solana;
+  
+  const solana = window.solana as any;
+  if (!solana) return undefined;
+  
+  // Check if it's Phantom or allow any Solana provider
+  if (solana.isPhantom || solana.isPhantnom) {
+    return solana as PhantomProvider;
+  }
+  
+  // Fallback to any solana provider if available
+  if (solana.connect && typeof solana.connect === "function") {
+    return solana as PhantomProvider;
+  }
+  
+  return undefined;
 }
 
 export async function connectPhantomWallet(): Promise<string> {
-  const provider = getPhantomProvider();
-  if (!provider) {
-    throw new Error("Phantom wallet not detected");
+  // Retry logic to wait for provider injection
+  let provider: PhantomProvider | undefined;
+  for (let i = 0; i < 10; i++) {
+    provider = getPhantomProvider();
+    if (provider) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
-  const { publicKey } = await provider.connect();
-  return publicKey.toBase58();
+  if (!provider) {
+    throw new Error(
+      "Phantom wallet not detected. Please install Phantom from https://phantom.app",
+    );
+  }
+
+  try {
+    const response = await provider.connect();
+    return response.publicKey.toBase58();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("User rejected")) {
+      throw new Error("Wallet connection rejected by user");
+    }
+    throw new Error(`Failed to connect wallet: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 export async function sendExecutionMemo(input: {

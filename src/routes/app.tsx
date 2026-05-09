@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { SiteNav } from "@/components/site-nav";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   ArrowRight,
   Send,
@@ -229,9 +230,13 @@ function AppPage() {
               const address = await connectPhantomWallet();
               setWalletAddress(address);
               setConnected(true);
-            } catch {
+              toast.success(`Connected: ${address.slice(0, 8)}...${address.slice(-4)}`);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : "Failed to connect wallet";
+              toast.error(message);
               setWalletAddress(null);
               setConnected(false);
+              console.error("Wallet connection error:", error);
             }
           }}
           onPick={(p) => sendIntent(p)}
