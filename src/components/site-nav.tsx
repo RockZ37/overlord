@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
+import overlordLogo from "../../logo/overlord 1.jpeg";
 
 export function SiteNav() {
   const { pathname } = useLocation();
@@ -7,12 +7,8 @@ export function SiteNav() {
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/60 border-b border-border/40">
       <div className="mx-auto max-w-7xl flex items-center justify-between px-6 py-4">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="relative h-8 w-8 rounded-lg bg-gradient-hero shadow-neon flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-background" />
-            <div className="absolute inset-0 rounded-lg bg-gradient-hero blur-md opacity-60 -z-10 group-hover:opacity-100 transition" />
-          </div>
+          <img src={overlordLogo} alt="Overlord" className="h-8 w-8 rounded-lg shadow-neon" />
           <div className="flex flex-col leading-none">
-            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Project</span>
             <span className="font-bold text-lg tracking-tight">Overlord</span>
           </div>
         </Link>

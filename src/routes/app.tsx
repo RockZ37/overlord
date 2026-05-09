@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { SiteNav } from "@/components/site-nav";
+import overlordLogo from "../../logo/overlord 1.jpeg";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -466,9 +467,7 @@ function ChatHeader() {
   return (
     <div className="flex items-center justify-between border-b border-border/60 px-6 py-4 bg-background/40">
       <div className="flex items-center gap-3">
-        <div className="relative h-9 w-9 rounded-xl bg-gradient-hero flex items-center justify-center shadow-neon">
-          <Sparkles className="h-4 w-4 text-background" />
-        </div>
+        <img src={overlordLogo} alt="Overlord" className="h-9 w-9 rounded-xl shadow-neon" />
         <div>
           <div className="font-semibold leading-none">Overlord Agent</div>
           <div className="text-xs text-muted-foreground font-mono mt-1">

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteNav } from "@/components/site-nav";
+import overlordLogo from "../../logo/overlord 1.jpeg";
 import {
   ArrowRight,
   Brain,
@@ -92,7 +93,7 @@ function Hero() {
 function PromptPreview() {
   return (
     <div className="mx-auto max-w-3xl relative animate-float">
-      <div className="absolute -inset-1 bg-gradient-hero opacity-40 blur-2xl rounded-3xl" />
+      <img src={overlordLogo} alt="" className="absolute -inset-1 opacity-40 blur-2xl rounded-3xl" />
       <div className="relative rounded-3xl border border-border bg-gradient-card backdrop-blur-xl shadow-card p-2">
         <div className="rounded-2xl bg-background/60 p-6 text-left">
           <div className="flex items-center gap-2 mb-4">
@@ -460,7 +461,7 @@ function Footer() {
     <footer className="border-t border-border/50 py-10">
       <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-md bg-gradient-hero" />
+          <img src="/logo/overlord 1.jpeg" alt="" className="h-6 w-6 rounded-md" />
           <span className="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">
             Project Overlord · v0.1
           </span>
