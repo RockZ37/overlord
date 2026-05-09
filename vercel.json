@@ -1,7 +1,7 @@
 {
-  "buildCommand": "pnpm build",
-  "outputDirectory": "dist",
-  "installCommand": "pnpm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/client",
+  "installCommand": "npm install",
   "env": {
     "VITE_OVERLORD_PROGRAM_ID": "@vite_overlord_program_id",
     "VITE_FAKE_EXECUTION": "@vite_fake_execution",
@@ -11,7 +11,7 @@
   "rewrites": [
     {
       "source": "/:path((?!.*\\.).*)",
-      "destination": "/index.html"
+      "destination": "/api/entry"
     }
   ],
   "headers": [
