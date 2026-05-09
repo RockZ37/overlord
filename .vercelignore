@@ -1,0 +1,11 @@
+node_modules/
+.git/
+.env.local
+.wrangler/
+dist/
+target/
+programs/
+*.pdf
+.lovable/
+wrangler.jsonc
+Anchor.toml

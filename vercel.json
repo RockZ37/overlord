@@ -1,0 +1,28 @@
+{
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install",
+  "env": {
+    "VITE_OVERLORD_PROGRAM_ID": "@vite_overlord_program_id",
+    "VITE_FAKE_EXECUTION": "@vite_fake_execution",
+    "FAKE_EXECUTION": "@fake_execution",
+    "AI_PROVIDER": "@ai_provider"
+  },
+  "rewrites": [
+    {
+      "source": "/:path((?!.*\\.).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ]
+}
