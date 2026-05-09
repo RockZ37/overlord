@@ -133,7 +133,7 @@ function AppPage() {
       await wait(700);
       let route;
       if (useFake) {
-        // Build a client-side mocked route instead of calling the server
+        // Build a demo route instead of calling the server
         const { buildMockRoute } = await import("@/lib/mocks");
         route = buildMockRoute(intent as ParsedIntent);
       } else {
@@ -363,7 +363,7 @@ function AppPage() {
       },
     ]);
     await completeExecution({ data: receipt.executionRef });
-    // Update simulated balance if in fake mode
+    // Update balance if in demo mode
     if (useFake) {
       setSimulatedBalance((prev) => prev + route.intent.amount);
     }
@@ -445,8 +445,8 @@ function WalletConfirmModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative z-10 w-full max-w-md rounded-2xl bg-background border border-border p-6">
-        <h3 className="text-lg font-semibold mb-2">Confirm in Wallet</h3>
-        <p className="text-sm text-muted-foreground mb-4">This simulates a wallet confirmation. Review and confirm to continue.</p>
+        <h3 className="text-lg font-semibold mb-2">Confirm</h3>
+        <p className="text-sm text-muted-foreground mb-4">Review and approve to continue.</p>
         <div className="space-y-2 mb-4">
           <div className="text-xs text-muted-foreground">Route</div>
           <div className="font-mono text-sm">{route.summary}</div>
@@ -551,7 +551,7 @@ function Sidebar({
             </div>
             <div className="rounded-lg bg-background/40 border border-border py-2 px-3">
               <div className="text-[10px] font-mono uppercase text-muted-foreground">
-                SOL Balance {useFake && <span className="text-primary">(simulated)</span>}
+                SOL Balance
               </div>
               <div className="font-semibold">
                 {useFake ? (

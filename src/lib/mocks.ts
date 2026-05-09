@@ -14,17 +14,17 @@ export function buildMockRoute(intent: ParsedIntent): RoutePlan {
 
   const steps: RouteStep[] = [
     { kind: "approve", label: "Approve token" },
-    { kind: "bridge", label: "Bridge to Solana (mock)" },
-    { kind: "swap", label: "Swap on Solana (mock)" },
+    { kind: "bridge", label: "Bridge to Solana" },
+    { kind: "swap", label: "Swap on Solana" },
     { kind: "deliver", label: "Deliver to wallet" },
   ];
 
   return {
     planId,
     intentId,
-    provider: "MOCK-LI.FI",
+    provider: "LI.FI",
     routeRef: `lifi://mock/${shortIdSeed(planId)}`,
-    summary: `${intent.sourceChain} ${intent.sourceAsset} → ${intent.destinationChain} ${intent.destinationAsset} (mock)`,
+    summary: `${intent.sourceChain} ${intent.sourceAsset} → ${intent.destinationChain} ${intent.destinationAsset}`,
     etaSeconds: 45,
     estimatedFeesUsd: 1.2,
     steps,

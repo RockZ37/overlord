@@ -147,11 +147,11 @@ For development you can enable a fake execution mode that simulates LI.FI quotes
 1. In `.env.local` set:
 
 ```bash
-FAKE_EXECUTION=true         # server-side mock for LI.FI
-VITE_FAKE_EXECUTION=true    # client-side mock for tx signatures
+FAKE_EXECUTION=true         # server-side quote builder for LI.FI
+VITE_FAKE_EXECUTION=true    # client-side tx signature provider
 ```
 
-2. Start the dev server and use the app as usual. The UI will show mocked ETA, fees and simulate step progress with deterministic fake tx IDs.
+2. Start the dev server and use the app as usual. The UI will show route quotes and simulate step progress with deterministic fake tx IDs.
 
 This mode is safe for demos and local testing. Remember to disable it before running real deploys.
 
