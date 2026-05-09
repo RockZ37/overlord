@@ -294,6 +294,34 @@ function Sidebar({
   onConnect: () => void;
   onPick: (p: string) => void;
 }) {
+  const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+
+  useEffect(() => {
+    if (!connected || !walletAddress) {
+      setSolBalance(null);
+      return;
+    }
+
+    (async () => {
+      try {
+        setLoadingBalance(true);
+        const connection = new (await import("@solana/web3.js")).Connection(
+          (await import("@solana/web3.js")).clusterApiUrl("devnet"),
+          "confirmed",
+        );
+        const pubkey = new (await import("@solana/web3.js")).PublicKey(walletAddress);
+        const balance = await connection.getBalance(pubkey);
+        setSolBalance(balance / 1e9); // Convert lamports to SOL
+      } catch (error) {
+        console.error("Failed to fetch SOL balance:", error);
+        setSolBalance(0);
+      } finally {
+        setLoadingBalance(false);
+      }
+    })();
+  }, [connected, walletAddress]);
+
   return (
     <aside className="space-y-4">
       <div className="rounded-2xl border border-border bg-gradient-card p-5">
@@ -305,29 +333,29 @@ function Sidebar({
             <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
               Wallet
             </div>
-            <div className="font-semibold">Phantom</div>
+            <div className="font-semibold">Phantom (Devnet)</div>
           </div>
         </div>
         {connected ? (
           <div className="space-y-3">
             <div className="rounded-lg bg-background/40 border border-border px-3 py-2 font-mono text-xs">
-              <div className="text-muted-foreground">Solana</div>
-              <div>{walletAddress ? shortenAddress(walletAddress) : "Demo mode"}</div>
-            </div>
-            <div className="rounded-lg bg-background/40 border border-border px-3 py-2 font-mono text-xs">
-              <div className="text-muted-foreground">Base</div>
-              <div>0x9c2…aF31</div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="rounded-lg bg-background/40 border border-border py-2">
-                <div className="text-[10px] font-mono uppercase text-muted-foreground">
-                  Base USDC
-                </div>
-                <div className="font-semibold">$248.10</div>
+              <div className="text-muted-foreground">Solana Address</div>
+              <div className="break-all">
+                {walletAddress ? shortenAddress(walletAddress) : "Loading..."}
               </div>
-              <div className="rounded-lg bg-background/40 border border-border py-2">
-                <div className="text-[10px] font-mono uppercase text-muted-foreground">SOL</div>
-                <div className="font-semibold">1.42</div>
+            </div>
+            <div className="rounded-lg bg-background/40 border border-border py-2 px-3">
+              <div className="text-[10px] font-mono uppercase text-muted-foreground">
+                SOL Balance
+              </div>
+              <div className="font-semibold">
+                {loadingBalance ? (
+                  <span className="text-muted-foreground">Loading...</span>
+                ) : solBalance !== null ? (
+                  `${solBalance.toFixed(4)} SOL`
+                ) : (
+                  "Error fetching balance"
+                )}
               </div>
             </div>
           </div>
