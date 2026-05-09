@@ -24,11 +24,11 @@ An AI-powered intent execution layer that eliminates friction in cross-chain onb
 - **Framework:** Anchor + Rust
 - **Network:** Solana Devnet
 - **Program ID:** `AoC6gRnhkN8TpueJoNpwXA9i47zYg5QpUu3voTL9284R`
-- **Repository:** [github.com/RockZ37/lovable-frontend](https://github.com/RockZ37/lovable-frontend)
+- **Repository:** [{{GITHUB_REPO_URL}}]({{GITHUB_REPO_URL}})
 - **Build Instructions:** See [README.md](./README.md) section "Building & Deploying the Anchor Program"
 
 ### ✅ Public Repository
-- **Repo Link:** [RockZ37/lovable-frontend](https://github.com/RockZ37/lovable-frontend)
+- **Repo Link:** [{{GITHUB_REPO_NAME}}]({{GITHUB_REPO_URL}})
 - **License:** MIT
 - **Branch:** `main`
 
@@ -218,8 +218,8 @@ LI.FI Response:
 
 ### Installation
 ```bash
-git clone https://github.com/RockZ37/lovable-frontend.git
-cd lovable-frontend
+git clone {{GITHUB_REPO_URL}}.git
+cd overlord-frontend
 pnpm install
 cp .env.example .env.local
 ```
@@ -312,4 +312,4 @@ For questions or issues:
 
 **Built for the Solana x LI.FI Hackathon**  
 Program ID: `AoC6gRnhkN8TpueJoNpwXA9i47zYg5QpUu3voTL9284R` (Devnet)  
-Repository: https://github.com/RockZ37/lovable-frontend
+Repository: {{GITHUB_REPO_URL}}
