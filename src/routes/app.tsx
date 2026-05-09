@@ -20,7 +20,7 @@ import {
   planRouteFn,
   startExecutionFn,
 } from "@/lib/overlord.functions";
-import type { ParsedIntent, RoutePlan } from "@/lib/overlord-types";
+import type { ParsedIntent, ParsedIntentResult, RoutePlan } from "@/lib/overlord-types";
 import {
   connectPhantomWallet,
   sendExecutionMemo,
@@ -55,15 +55,9 @@ type Step = {
 type Message =
   | { id: string; role: "user"; text: string }
   | { id: string; role: "ai"; text: string }
-  | { id: string; role: "intent"; intent: ParsedIntent }
+  | { id: string; role: "intent"; result: ParsedIntentResult }
   | { id: string; role: "route"; route: RoutePlan; confirmed: boolean }
   | { id: string; role: "execution"; steps: Step[]; route: RoutePlan; executionRef: string };
-
-const sampleIntents = [
-  "Put $50 from my Base wallet into SOL",
-  "Fund my Drift account with $100 from Base USDC",
-  "Buy BONK with $25 from my Base ETH",
-];
 
 function AppPage() {
   const parseIntent = useServerFn(parseIntentFn);
@@ -76,7 +70,7 @@ function AppPage() {
     {
       id: "welcome",
       role: "ai",
-      text: "Welcome to Overlord. Tell me what you want to do across chains and I'll handle the bridging, swapping, and delivery. Try one of the prompts below.",
+      text: "Tell me what you want to do across chains and I’ll handle the bridging, swapping, and delivery.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -94,32 +88,64 @@ function AppPage() {
     setMessages((m) => [...m, { id: userId, role: "user", text }]);
     setInput("");
 
-    await wait(450);
-    const intent = await parseIntent({ data: text });
-    setMessages((m) => [
-      ...m,
-      {
-        id: crypto.randomUUID(),
-        role: "ai",
-        text: "Got it. Extracting intent…",
-      },
-      { id: crypto.randomUUID(), role: "intent", intent },
-    ]);
+    try {
+      await wait(450);
+      const intentResult = await parseIntent({ data: text });
+      const intent = intentResult.intent;
 
-    await wait(700);
-    const route = await planRoute({ data: intent });
-    setMessages((m) => [
-      ...m,
-      {
-        id: crypto.randomUUID(),
-        role: "ai",
-        text: `Querying LI.FI for the best route from ${intent.sourceChain} ${intent.sourceAsset} → ${intent.destinationChain} ${intent.destinationAsset}…`,
-      },
-    ]);
-    await wait(900);
-    const routeId = crypto.randomUUID();
-    setMessages((m) => [...m, { id: routeId, role: "route", route, confirmed: false }]);
-    setBusy(false);
+      if (!intentResult.actionable) {
+        setMessages((m) => [
+          ...m,
+          {
+            id: crypto.randomUUID(),
+            role: "ai",
+            text:
+              intentResult.clarification ??
+              "Please provide amount, source chain/asset, and destination chain/asset.",
+          },
+        ]);
+        return;
+      }
+
+      setMessages((m) => [
+        ...m,
+        {
+          id: crypto.randomUUID(),
+          role: "ai",
+          text: `Parsed by ${intentResult.provider}: ${intent.sourceChain} ${intent.sourceAsset} → ${intent.destinationChain} ${intent.destinationAsset} for ${intent.amount}`,
+        },
+        { id: crypto.randomUUID(), role: "intent", result: intentResult },
+      ]);
+
+      await wait(700);
+      const route = await planRoute({ data: intent });
+      setMessages((m) => [
+        ...m,
+        {
+          id: crypto.randomUUID(),
+          role: "ai",
+          text: `Route ready: ${route.summary}`,
+        },
+      ]);
+      await wait(900);
+      const routeId = crypto.randomUUID();
+      setMessages((m) => [...m, { id: routeId, role: "route", route, confirmed: false }]);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to generate a live route right now. Please try again.";
+      setMessages((m) => [
+        ...m,
+        {
+          id: crypto.randomUUID(),
+          role: "ai",
+          text: `Live route unavailable: ${message}`,
+        },
+      ]);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function confirmRoute(routeId: string) {
@@ -369,23 +395,6 @@ function Sidebar({
         )}
       </div>
 
-      <div className="rounded-2xl border border-border bg-gradient-card p-5">
-        <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
-          Quick intents
-        </div>
-        <div className="space-y-2">
-          {sampleIntents.map((p) => (
-            <button
-              key={p}
-              onClick={() => onPick(p)}
-              className="w-full text-left text-sm rounded-lg border border-border bg-background/40 hover:border-primary/50 hover:text-primary px-3 py-2 transition"
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <Link
         to="/"
         className="block text-center text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground transition py-2"
@@ -423,12 +432,17 @@ function MessageView({
     );
   }
   if (message.role === "intent") {
-    const i = message.intent;
+    const i = message.result.intent;
     return (
       <div className="flex gap-3">
         <AiAvatar />
         <div className="rounded-2xl border border-border bg-background/40 p-4 font-mono text-xs space-y-1">
-          <div className="text-muted-foreground mb-1">// extracted_intent</div>
+          <div className="flex items-center justify-between gap-3 text-muted-foreground mb-1">
+            <span>// extracted_intent</span>
+            <span className="text-primary uppercase tracking-widest">
+              {message.result.provider}
+            </span>
+          </div>
           <Kv k="from_chain" v={i.sourceChain} />
           <Kv k="from_asset" v={i.sourceAsset} />
           <Kv k="amount" v={`$${i.amount}`} />
@@ -436,6 +450,10 @@ function MessageView({
           <Kv k="to_asset" v={i.destinationAsset} />
           {i.destinationAction && <Kv k="action" v={i.destinationAction} />}
           <Kv k="confidence" v={`${Math.round(i.confidence * 100)}%`} />
+          {message.result.model && <Kv k="model" v={message.result.model} />}
+          {message.result.note && (
+            <div className="pt-2 text-[10px] text-muted-foreground/80">{message.result.note}</div>
+          )}
         </div>
       </div>
     );

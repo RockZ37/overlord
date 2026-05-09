@@ -6,11 +6,16 @@ import {
   parseOverlordIntent,
   startExecution,
 } from "./overlord.server";
-import type { ExecutionReceipt, ParsedIntent, RoutePlan } from "./overlord-types";
+import type {
+  ExecutionReceipt,
+  ParsedIntent,
+  ParsedIntentResult,
+  RoutePlan,
+} from "./overlord-types";
 
 export const parseIntentFn = createServerFn({ method: "POST" })
   .inputValidator((data: string) => data)
-  .handler(async ({ data }) => parseOverlordIntent(data));
+  .handler(async ({ data }): Promise<ParsedIntentResult> => parseOverlordIntent(data));
 
 export const planRouteFn = createServerFn({ method: "POST" })
   .inputValidator((data: ParsedIntent) => data)

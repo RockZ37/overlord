@@ -9,6 +9,17 @@ export type ParsedIntent = {
   confidence: number;
 };
 
+export type IntentParseSource = "gemini" | "anthropic" | "heuristic";
+
+export type ParsedIntentResult = {
+  intent: ParsedIntent;
+  provider: IntentParseSource;
+  actionable: boolean;
+  model?: string;
+  note?: string;
+  clarification?: string;
+};
+
 export type RouteStepKind = "approve" | "bridge" | "swap" | "deliver";
 
 export type RouteStep = {
