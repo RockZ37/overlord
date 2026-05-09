@@ -70,7 +70,7 @@ function Hero() {
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
           <Link
-            to="/app"
+            to="/app?fake=1"
             className="group inline-flex items-center gap-2 rounded-full bg-gradient-hero px-7 py-3.5 font-semibold text-background shadow-glow hover:scale-[1.02] transition"
           >
             Try the demo

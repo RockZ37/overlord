@@ -64,6 +64,10 @@ function AppPage() {
   const planRoute = useServerFn(planRouteFn);
   const startExecution = useServerFn(startExecutionFn);
   const completeExecution = useServerFn(completeExecutionFn);
+  const [useFake, setUseFake] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [pendingRouteForWallet, setPendingRouteForWallet] = useState<RoutePlan | null>(null);
+  const [simulatedBalance, setSimulatedBalance] = useState(0);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -80,6 +84,15 @@ function AppPage() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 9e9, behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("fake") === "1") setUseFake(true);
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   async function sendIntent(text: string) {
     if (!text.trim() || busy) return;
@@ -118,7 +131,14 @@ function AppPage() {
       ]);
 
       await wait(700);
-      const route = await planRoute({ data: intent });
+      let route;
+      if (useFake) {
+        // Build a client-side mocked route instead of calling the server
+        const { buildMockRoute } = await import("@/lib/mocks");
+        route = buildMockRoute(intent as ParsedIntent);
+      } else {
+        route = await planRoute({ data: intent });
+      }
       setMessages((m) => [
         ...m,
         {
@@ -157,6 +177,13 @@ function AppPage() {
     const routeMsg = messages.find((m) => m.id === routeId);
     if (!routeMsg || routeMsg.role !== "route") return;
     const route = routeMsg.route;
+
+    if (useFake) {
+      // Show an in-app wallet confirmation modal that mimics a wallet prompt
+      setPendingRouteForWallet(route);
+      setShowWalletModal(true);
+      return;
+    }
     const receipt = await startExecution({ data: route });
     const baseSteps: Step[] = route.steps.map((step, index) => ({
       label: step.label,
@@ -244,6 +271,112 @@ function AppPage() {
     setBusy(false);
   }
 
+  async function handleWalletConfirm() {
+    const route = pendingRouteForWallet;
+    setShowWalletModal(false);
+    setPendingRouteForWallet(null);
+    if (!route) return;
+
+    // proceed with existing confirmRoute flow for real execution
+    // startExecution + UI updates
+    const receipt = await startExecution({ data: route });
+    const baseSteps: Step[] = route.steps.map((step, index) => ({
+      label: step.label,
+      status: "idle",
+      hash: receipt.stepHashes[index],
+    }));
+    const execId = crypto.randomUUID();
+    setMessages((m) => [
+      ...m,
+      {
+        id: execId,
+        role: "execution",
+        steps: baseSteps,
+        route,
+        executionRef: receipt.executionRef,
+      },
+    ]);
+    setBusy(true);
+
+    let transactionSignature: string | undefined;
+    try {
+      transactionSignature = await submitRegistryExecution({
+        route,
+        executionRef: receipt.executionRef,
+      });
+    } catch {
+      try {
+        transactionSignature = await sendExecutionMemo({
+          executionRef: receipt.executionRef,
+          planId: route.planId,
+          routeRef: route.routeRef,
+          summary: route.summary,
+        });
+      } catch {
+        transactionSignature = undefined;
+      }
+    }
+
+    for (let i = 0; i < baseSteps.length; i++) {
+      await wait(700);
+      setMessages((m) =>
+        m.map((msg) =>
+          msg.id === execId && msg.role === "execution"
+            ? {
+                ...msg,
+                steps: msg.steps.map((s, idx) => (idx === i ? { ...s, status: "loading" } : s)),
+              }
+            : msg,
+        ),
+      );
+      await wait(1200 + Math.random() * 600);
+      setMessages((m) =>
+        m.map((msg) =>
+          msg.id === execId && msg.role === "execution"
+            ? {
+                ...msg,
+                steps: msg.steps.map((s, idx) =>
+                  idx === i
+                    ? {
+                        ...s,
+                        status: "done",
+                        hash:
+                          i === baseSteps.length - 1 && transactionSignature
+                            ? transactionSignature
+                            : msg.steps[idx]?.hash,
+                      }
+                    : s,
+                ),
+              }
+            : msg,
+        ),
+      );
+    }
+
+    await wait(400);
+    setMessages((m) => [
+      ...m,
+      {
+        id: crypto.randomUUID(),
+        role: "ai",
+        text: `Done. ${route.intent.destinationAction ?? `${route.intent.amount} ${route.intent.destinationAsset}`} is on Solana. Anything else?`,
+      },
+    ]);
+    await completeExecution({ data: receipt.executionRef });
+    // Update simulated balance if in fake mode
+    if (useFake) {
+      setSimulatedBalance((prev) => prev + route.intent.amount);
+    }
+    setBusy(false);
+  }
+
+  function handleWalletCancel() {
+    setShowWalletModal(false);
+    setPendingRouteForWallet(null);
+    // un-confirm the route message if present
+    setMessages((m) => m.map((msg) => (msg.role === "route" ? { ...msg, confirmed: false } : msg)));
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <SiteNav />
@@ -251,6 +384,8 @@ function AppPage() {
         <Sidebar
           connected={Boolean(walletAddress) || connected}
           walletAddress={walletAddress}
+          simulatedBalance={simulatedBalance}
+          useFake={useFake}
           onConnect={async () => {
             try {
               const address = await connectPhantomWallet();
@@ -281,6 +416,46 @@ function AppPage() {
             onSend={() => sendIntent(input)}
             disabled={busy}
           />
+          <WalletConfirmModal
+            route={pendingRouteForWallet}
+            open={showWalletModal}
+            onConfirm={handleWalletConfirm}
+            onCancel={handleWalletCancel}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WalletConfirmModal({
+  route,
+  open,
+  onConfirm,
+  onCancel,
+}: {
+  route: RoutePlan | null;
+  open: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!open || !route) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-background border border-border p-6">
+        <h3 className="text-lg font-semibold mb-2">Confirm in Wallet</h3>
+        <p className="text-sm text-muted-foreground mb-4">This simulates a wallet confirmation. Review and confirm to continue.</p>
+        <div className="space-y-2 mb-4">
+          <div className="text-xs text-muted-foreground">Route</div>
+          <div className="font-mono text-sm">{route.summary}</div>
+          <div className="text-xs text-muted-foreground mt-2">Estimated fee</div>
+          <div className="font-semibold">${route.estimatedFeesUsd?.toFixed(2) ?? "—"}</div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onCancel} className="rounded-md px-4 py-2 border border-border">Cancel</button>
+          <button onClick={onConfirm} className="rounded-md bg-primary px-4 py-2 text-background">Confirm</button>
         </div>
       </div>
     </div>
@@ -312,11 +487,15 @@ function ChatHeader() {
 function Sidebar({
   connected,
   walletAddress,
+  simulatedBalance,
+  useFake,
   onConnect,
   onPick,
 }: {
   connected: boolean;
   walletAddress: string | null;
+  simulatedBalance: number;
+  useFake: boolean;
   onConnect: () => void;
   onPick: (p: string) => void;
 }) {
@@ -372,10 +551,12 @@ function Sidebar({
             </div>
             <div className="rounded-lg bg-background/40 border border-border py-2 px-3">
               <div className="text-[10px] font-mono uppercase text-muted-foreground">
-                SOL Balance
+                SOL Balance {useFake && <span className="text-primary">(simulated)</span>}
               </div>
               <div className="font-semibold">
-                {loadingBalance ? (
+                {useFake ? (
+                  `${((solBalance ?? 0) + simulatedBalance).toFixed(4)} SOL`
+                ) : loadingBalance ? (
                   <span className="text-muted-foreground">Loading...</span>
                 ) : solBalance !== null ? (
                   `${solBalance.toFixed(4)} SOL`

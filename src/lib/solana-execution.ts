@@ -79,6 +79,13 @@ export async function sendExecutionMemo(input: {
   routeRef: string;
   summary: string;
 }): Promise<string> {
+  // Fast-fail into a fake mode when VITE_FAKE_EXECUTION is enabled in the frontend env.
+  const FAKE = (import.meta.env.VITE_FAKE_EXECUTION ?? "false") === "true";
+  if (FAKE) {
+    // return a deterministic fake signature to allow UI flows to proceed
+    return `FAKE_MEMO_${shortId(input.executionRef + input.planId + input.routeRef)}`;
+  }
+
   const provider = getPhantomProvider();
   if (!provider?.publicKey) {
     throw new Error("Wallet not connected");
@@ -129,6 +136,11 @@ export async function submitRegistryExecution(input: {
   route: RoutePlan;
   executionRef: string;
 }): Promise<string> {
+  const FAKE = (import.meta.env.VITE_FAKE_EXECUTION ?? "false") === "true";
+  if (FAKE) {
+    return `FAKE_TX_${shortId(input.executionRef + input.route.planId)}_${Date.now().toString(36)}`;
+  }
+
   const provider = getPhantomProvider();
   if (!provider?.publicKey) {
     throw new Error("Wallet not connected");

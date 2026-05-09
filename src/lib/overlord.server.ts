@@ -184,6 +184,31 @@ export async function completeExecution(executionRef: string): Promise<Execution
 }
 
 async function fetchLifiQuote(intent: ParsedIntent): Promise<unknown | null> {
+  // Support a fake execution mode for local/dev testing where LI.FI is mocked.
+  // Enable by setting environment variable `FAKE_EXECUTION=true` in the server env.
+  if (process.env.FAKE_EXECUTION === "true") {
+    // Build a lightweight mocked quote with the fields `buildRoutePlan` expects.
+    const mockRouteId = `mock_${shortId(`${intent.sourceChain}:${intent.sourceAsset}->${intent.destinationChain}:${intent.destinationAsset}:${intent.amount}`)}`;
+    const mock = {
+      id: mockRouteId,
+      route: { id: mockRouteId },
+      estimate: { executionDuration: 45, feeCostsUsd: 1.2 },
+      summary: `${intent.sourceChain} ${intent.sourceAsset} → ${intent.destinationChain} ${intent.destinationAsset} via MOCK-LI.FI`,
+      routes: [
+        {
+          steps: [
+            { toolDetails: { name: "Approve" }, type: "approve" },
+            { toolDetails: { name: "Bridge (mock)" }, type: "bridge" },
+            { toolDetails: { name: "Swap (mock)" }, type: "swap" },
+            { toolDetails: { name: "Deliver (mock)" }, type: "deliver" },
+          ],
+        },
+      ],
+      tool: "MOCK-LI.FI",
+    } as const;
+
+    return mock;
+  }
   if (intent.sourceChain !== "Base" || intent.destinationChain !== "Solana") {
     return null;
   }
