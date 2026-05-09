@@ -37,7 +37,13 @@ const LIFI_API_BASE_URL = process.env.LIFI_API_BASE_URL ?? "https://li.quest";
 const LIFI_FROM_ADDRESS =
   process.env.LIFI_FROM_ADDRESS ?? "0x0000000000000000000000000000000000000001";
 const BASE_CHAIN_ID = 8453;
-const SOLANA_CHAIN_ID = Number(process.env.LIFI_SOLANA_CHAIN_ID ?? "1151111081");
+const LEGACY_SOLANA_CHAIN_ID = "1151111081";
+const SOLANA_CHAIN_ID = Number(
+  process.env.LIFI_SOLANA_CHAIN_ID?.trim() === LEGACY_SOLANA_CHAIN_ID
+    ? "1151111081099710"
+    : (process.env.LIFI_SOLANA_CHAIN_ID ?? "1151111081099710"),
+);
+const LIFI_TO_ADDRESS = process.env.LIFI_TO_ADDRESS?.trim() ?? "11111111111111111111111111111111";
 const AI_PROVIDER = process.env.AI_PROVIDER?.trim().toLowerCase();
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY?.trim();
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL?.trim() ?? "claude-3-5-sonnet-latest";
@@ -201,6 +207,7 @@ async function fetchLifiQuote(intent: ParsedIntent): Promise<unknown | null> {
     toToken: destinationToken.address,
     fromAmount,
     fromAddress: LIFI_FROM_ADDRESS,
+    toAddress: LIFI_TO_ADDRESS,
   });
 
   const response = await fetch(`${LIFI_API_BASE_URL}/v1/quote?${params.toString()}`, {
