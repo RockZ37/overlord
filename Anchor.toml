@@ -1,0 +1,16 @@
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+overlord = "AoC6gRnhkN8TpueJoNpwXA9i47zYg5QpUu3voTL9284R"
+
+[programs.devnet]
+overlord = "AoC6gRnhkN8TpueJoNpwXA9i47zYg5QpUu3voTL9284R"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[workspace]
+members = ["programs/overlord"]

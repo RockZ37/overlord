@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { SiteNav } from "@/components/site-nav";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -12,6 +13,18 @@ import {
   Check,
   ExternalLink,
 } from "lucide-react";
+import {
+  completeExecutionFn,
+  parseIntentFn,
+  planRouteFn,
+  startExecutionFn,
+} from "@/lib/overlord.functions";
+import type { ParsedIntent, RoutePlan } from "@/lib/overlord-types";
+import {
+  connectPhantomWallet,
+  sendExecutionMemo,
+  submitRegistryExecution,
+} from "@/lib/solana-execution";
 
 export const Route = createFileRoute("/app")({
   component: AppPage,
@@ -32,15 +45,6 @@ export const Route = createFileRoute("/app")({
   }),
 });
 
-type Intent = {
-  fromChain: string;
-  fromAsset: string;
-  toChain: string;
-  toAsset: string;
-  amount: number;
-  destinationAction?: string;
-};
-
 type Step = {
   label: string;
   status: "idle" | "loading" | "done";
@@ -50,9 +54,9 @@ type Step = {
 type Message =
   | { id: string; role: "user"; text: string }
   | { id: string; role: "ai"; text: string }
-  | { id: string; role: "intent"; intent: Intent }
-  | { id: string; role: "route"; intent: Intent; confirmed: boolean }
-  | { id: string; role: "execution"; steps: Step[]; intent: Intent };
+  | { id: string; role: "intent"; intent: ParsedIntent }
+  | { id: string; role: "route"; route: RoutePlan; confirmed: boolean }
+  | { id: string; role: "execution"; steps: Step[]; route: RoutePlan; executionRef: string };
 
 const sampleIntents = [
   "Put $50 from my Base wallet into SOL",
@@ -61,13 +65,17 @@ const sampleIntents = [
 ];
 
 function AppPage() {
+  const parseIntent = useServerFn(parseIntentFn);
+  const planRoute = useServerFn(planRouteFn);
+  const startExecution = useServerFn(startExecutionFn);
+  const completeExecution = useServerFn(completeExecutionFn);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "ai",
-      text:
-        "Welcome to Overlord. Tell me what you want to do across chains and I'll handle the bridging, swapping, and delivery. Try one of the prompts below.",
+      text: "Welcome to Overlord. Tell me what you want to do across chains and I'll handle the bridging, swapping, and delivery. Try one of the prompts below.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -78,42 +86,15 @@ function AppPage() {
     scrollRef.current?.scrollTo({ top: 9e9, behavior: "smooth" });
   }, [messages]);
 
-  function parseIntent(text: string): Intent {
-    const amountMatch = text.match(/\$?(\d+(?:\.\d+)?)/);
-    const amount = amountMatch ? parseFloat(amountMatch[1]) : 50;
-    const lower = text.toLowerCase();
-    let toAsset = "SOL";
-    let destinationAction: string | undefined;
-    if (lower.includes("bonk")) toAsset = "BONK";
-    else if (lower.includes("jup")) toAsset = "JUP";
-    else if (lower.includes("usdc")) toAsset = "USDC";
-    if (lower.includes("drift")) destinationAction = "Deposit to Drift";
-    else if (lower.includes("jupiter")) destinationAction = "Swap on Jupiter";
-    else if (lower.includes("tensor")) destinationAction = "Tensor wallet";
-    let fromAsset = "USDC";
-    if (lower.includes("eth")) fromAsset = "ETH";
-    return {
-      fromChain: "Base",
-      fromAsset,
-      toChain: "Solana",
-      toAsset,
-      amount,
-      destinationAction,
-    };
-  }
-
   async function sendIntent(text: string) {
     if (!text.trim() || busy) return;
-    if (!connected) {
-      setConnected(true);
-    }
     setBusy(true);
     const userId = crypto.randomUUID();
     setMessages((m) => [...m, { id: userId, role: "user", text }]);
     setInput("");
 
     await wait(450);
-    const intent = parseIntent(text);
+    const intent = await parseIntent({ data: text });
     setMessages((m) => [
       ...m,
       {
@@ -125,51 +106,67 @@ function AppPage() {
     ]);
 
     await wait(700);
+    const route = await planRoute({ data: intent });
     setMessages((m) => [
       ...m,
       {
         id: crypto.randomUUID(),
         role: "ai",
-        text: `Querying LI.FI for the best route from ${intent.fromChain} ${intent.fromAsset} → ${intent.toChain} ${intent.toAsset}…`,
+        text: `Querying LI.FI for the best route from ${intent.sourceChain} ${intent.sourceAsset} → ${intent.destinationChain} ${intent.destinationAsset}…`,
       },
     ]);
     await wait(900);
     const routeId = crypto.randomUUID();
-    setMessages((m) => [
-      ...m,
-      { id: routeId, role: "route", intent, confirmed: false },
-    ]);
+    setMessages((m) => [...m, { id: routeId, role: "route", route, confirmed: false }]);
     setBusy(false);
   }
 
   async function confirmRoute(routeId: string) {
     setMessages((m) =>
       m.map((msg) =>
-        msg.id === routeId && msg.role === "route"
-          ? { ...msg, confirmed: true }
-          : msg,
+        msg.id === routeId && msg.role === "route" ? { ...msg, confirmed: true } : msg,
       ),
     );
     const routeMsg = messages.find((m) => m.id === routeId);
     if (!routeMsg || routeMsg.role !== "route") return;
-    const intent = routeMsg.intent;
-    const baseSteps: Step[] = [
-      { label: `Approve ${intent.fromAsset} on ${intent.fromChain}`, status: "idle" },
-      { label: `Bridge to ${intent.toChain} via LI.FI`, status: "idle" },
-      { label: `Swap into ${intent.toAsset}`, status: "idle" },
-      {
-        label: intent.destinationAction
-          ? intent.destinationAction
-          : `Deliver ${intent.toAsset} to wallet`,
-        status: "idle",
-      },
-    ];
+    const route = routeMsg.route;
+    const receipt = await startExecution({ data: route });
+    const baseSteps: Step[] = route.steps.map((step, index) => ({
+      label: step.label,
+      status: "idle",
+      hash: receipt.stepHashes[index],
+    }));
     const execId = crypto.randomUUID();
     setMessages((m) => [
       ...m,
-      { id: execId, role: "execution", steps: baseSteps, intent },
+      {
+        id: execId,
+        role: "execution",
+        steps: baseSteps,
+        route,
+        executionRef: receipt.executionRef,
+      },
     ]);
     setBusy(true);
+
+    let transactionSignature: string | undefined;
+    try {
+      transactionSignature = await submitRegistryExecution({
+        route,
+        executionRef: receipt.executionRef,
+      });
+    } catch {
+      try {
+        transactionSignature = await sendExecutionMemo({
+          executionRef: receipt.executionRef,
+          planId: route.planId,
+          routeRef: route.routeRef,
+          summary: route.summary,
+        });
+      } catch {
+        transactionSignature = undefined;
+      }
+    }
 
     for (let i = 0; i < baseSteps.length; i++) {
       await wait(700);
@@ -178,9 +175,7 @@ function AppPage() {
           msg.id === execId && msg.role === "execution"
             ? {
                 ...msg,
-                steps: msg.steps.map((s, idx) =>
-                  idx === i ? { ...s, status: "loading" } : s,
-                ),
+                steps: msg.steps.map((s, idx) => (idx === i ? { ...s, status: "loading" } : s)),
               }
             : msg,
         ),
@@ -196,7 +191,10 @@ function AppPage() {
                     ? {
                         ...s,
                         status: "done",
-                        hash: fakeHash(),
+                        hash:
+                          i === baseSteps.length - 1 && transactionSignature
+                            ? transactionSignature
+                            : msg.steps[idx]?.hash,
                       }
                     : s,
                 ),
@@ -212,11 +210,10 @@ function AppPage() {
       {
         id: crypto.randomUUID(),
         role: "ai",
-        text: `Done. ${
-          intent.destinationAction ?? `${intent.amount} ${intent.toAsset}`
-        } is on Solana. Anything else?`,
+        text: `Done. ${route.intent.destinationAction ?? `${route.intent.amount} ${route.intent.destinationAsset}`} is on Solana. Anything else?`,
       },
     ]);
+    await completeExecution({ data: receipt.executionRef });
     setBusy(false);
   }
 
@@ -225,8 +222,18 @@ function AppPage() {
       <SiteNav />
       <div className="flex-1 mx-auto w-full max-w-6xl px-4 md:px-6 py-6 grid lg:grid-cols-[260px_1fr] gap-6">
         <Sidebar
-          connected={connected}
-          onConnect={() => setConnected(true)}
+          connected={Boolean(walletAddress) || connected}
+          walletAddress={walletAddress}
+          onConnect={async () => {
+            try {
+              const address = await connectPhantomWallet();
+              setWalletAddress(address);
+              setConnected(true);
+            } catch {
+              setWalletAddress(null);
+              setConnected(false);
+            }
+          }}
           onPick={(p) => sendIntent(p)}
         />
         <div className="relative flex flex-col rounded-3xl border border-border bg-gradient-card backdrop-blur-xl shadow-card overflow-hidden">
@@ -273,10 +280,12 @@ function ChatHeader() {
 
 function Sidebar({
   connected,
+  walletAddress,
   onConnect,
   onPick,
 }: {
   connected: boolean;
+  walletAddress: string | null;
   onConnect: () => void;
   onPick: (p: string) => void;
 }) {
@@ -298,7 +307,7 @@ function Sidebar({
           <div className="space-y-3">
             <div className="rounded-lg bg-background/40 border border-border px-3 py-2 font-mono text-xs">
               <div className="text-muted-foreground">Solana</div>
-              <div>4xKp…h7Qz</div>
+              <div>{walletAddress ? shortenAddress(walletAddress) : "Demo mode"}</div>
             </div>
             <div className="rounded-lg bg-background/40 border border-border px-3 py-2 font-mono text-xs">
               <div className="text-muted-foreground">Base</div>
@@ -312,9 +321,7 @@ function Sidebar({
                 <div className="font-semibold">$248.10</div>
               </div>
               <div className="rounded-lg bg-background/40 border border-border py-2">
-                <div className="text-[10px] font-mono uppercase text-muted-foreground">
-                  SOL
-                </div>
+                <div className="text-[10px] font-mono uppercase text-muted-foreground">SOL</div>
                 <div className="font-semibold">1.42</div>
               </div>
             </div>
@@ -389,38 +396,54 @@ function MessageView({
         <AiAvatar />
         <div className="rounded-2xl border border-border bg-background/40 p-4 font-mono text-xs space-y-1">
           <div className="text-muted-foreground mb-1">// extracted_intent</div>
-          <Kv k="from_chain" v={i.fromChain} />
-          <Kv k="from_asset" v={i.fromAsset} />
+          <Kv k="from_chain" v={i.sourceChain} />
+          <Kv k="from_asset" v={i.sourceAsset} />
           <Kv k="amount" v={`$${i.amount}`} />
-          <Kv k="to_chain" v={i.toChain} />
-          <Kv k="to_asset" v={i.toAsset} />
+          <Kv k="to_chain" v={i.destinationChain} />
+          <Kv k="to_asset" v={i.destinationAsset} />
           {i.destinationAction && <Kv k="action" v={i.destinationAction} />}
+          <Kv k="confidence" v={`${Math.round(i.confidence * 100)}%`} />
         </div>
       </div>
     );
   }
   if (message.role === "route") {
-    const i = message.intent;
+    const route = message.route;
     return (
       <div className="flex gap-3">
         <AiAvatar />
         <div className="w-full max-w-xl rounded-2xl border border-primary/30 bg-primary/5 p-5">
           <div className="flex items-center gap-2 mb-4">
             <Zap className="h-4 w-4 text-primary" />
-            <span className="font-semibold">Best route via LI.FI</span>
+            <span className="font-semibold">Best route via {route.provider}</span>
+          </div>
+          <div className="mb-4 rounded-xl border border-border bg-background/40 px-4 py-3 text-sm">
+            {route.summary}
           </div>
           <div className="grid grid-cols-3 items-center gap-2 mb-5">
-            <RouteNode label={i.fromChain} sub={i.fromAsset} />
+            <RouteNode label={route.intent.sourceChain} sub={route.intent.sourceAsset} />
             <div className="flex flex-col items-center text-muted-foreground">
               <div className="font-mono text-[10px] uppercase tracking-widest">bridge</div>
               <ArrowRight className="h-4 w-4" />
             </div>
-            <RouteNode label={i.toChain} sub={i.toAsset} highlight />
+            <RouteNode
+              label={route.intent.destinationChain}
+              sub={route.intent.destinationAsset}
+              highlight
+            />
           </div>
           <div className="grid grid-cols-3 gap-3 text-xs font-mono mb-5">
-            <Stat label="ETA" value="~45s" />
-            <Stat label="Fees" value="$1.20" />
+            <Stat label="ETA" value={`~${route.etaSeconds}s`} />
+            <Stat label="Fees" value={`$${route.estimatedFeesUsd.toFixed(2)}`} />
             <Stat label="Slippage" value="0.5%" />
+          </div>
+          <div className="mb-5 rounded-xl border border-border bg-background/40 p-4 space-y-2">
+            {route.steps.map((step) => (
+              <div key={step.kind} className="flex items-center justify-between text-xs font-mono">
+                <span className="text-muted-foreground uppercase tracking-widest">{step.kind}</span>
+                <span>{step.label}</span>
+              </div>
+            ))}
           </div>
           <button
             disabled={message.confirmed}
@@ -440,8 +463,9 @@ function MessageView({
         <AiAvatar />
         <div className="w-full max-w-xl rounded-2xl border border-border bg-background/40 p-5 space-y-3">
           <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-            execution
+            execution · {message.route.planId}
           </div>
+          <div className="font-mono text-[10px] text-muted-foreground">{message.executionRef}</div>
           {message.steps.map((s, idx) => (
             <ExecutionStep key={idx} step={s} />
           ))}
@@ -465,11 +489,7 @@ function ExecutionStep({ step }: { step: Step }) {
         )}
       </div>
       <div className="flex-1">
-        <div
-          className={
-            step.status === "idle" ? "text-muted-foreground/60" : "text-foreground"
-          }
-        >
+        <div className={step.status === "idle" ? "text-muted-foreground/60" : "text-foreground"}>
           {step.label}
         </div>
         {step.hash && (
@@ -485,15 +505,7 @@ function ExecutionStep({ step }: { step: Step }) {
   );
 }
 
-function RouteNode({
-  label,
-  sub,
-  highlight,
-}: {
-  label: string;
-  sub: string;
-  highlight?: boolean;
-}) {
+function RouteNode({ label, sub, highlight }: { label: string; sub: string; highlight?: boolean }) {
   return (
     <div
       className={`rounded-xl border p-3 text-center ${
@@ -511,9 +523,7 @@ function RouteNode({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-background/60 border border-border px-3 py-2">
-      <div className="text-muted-foreground text-[10px] uppercase tracking-widest">
-        {label}
-      </div>
+      <div className="text-muted-foreground text-[10px] uppercase tracking-widest">{label}</div>
       <div className="text-foreground">{value}</div>
     </div>
   );
@@ -526,6 +536,10 @@ function Kv({ k, v }: { k: string; v: string }) {
       <span className="text-primary">"{v}"</span>
     </div>
   );
+}
+
+function shortenAddress(value: string): string {
+  return `${value.slice(0, 4)}…${value.slice(-4)}`;
 }
 
 function AiAvatar() {
@@ -599,11 +613,4 @@ function InputBar({
 
 function wait(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
-}
-
-function fakeHash() {
-  const chars = "abcdef0123456789";
-  let s = "0x";
-  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s + "…" + chars[0] + chars[5];
 }
