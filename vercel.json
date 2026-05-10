@@ -2,11 +2,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
   "installCommand": "npm install",
-  "functions": {
-    "api/entry.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "env": {
     "VITE_OVERLORD_PROGRAM_ID": "AoC6gRnhkN8TpueJoNpwXA9i47zYg5QpUu3voTL9284R",
     "VITE_FAKE_EXECUTION": "false",
