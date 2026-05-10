@@ -99,7 +99,7 @@ function AppPage() {
 
     try {
       await wait(450);
-      const intentResult = await parseIntentFn({ data: text });
+      const intentResult = useFake ? parseIntentForDemo(text) : await parseIntentFn({ data: text });
       const intent = intentResult.intent;
 
       if (!intentResult.actionable) {
@@ -180,7 +180,21 @@ function AppPage() {
       setShowWalletModal(true);
       return;
     }
-    const receipt = await startExecutionFn({ data: route });
+    const receipt = useFake
+      ? {
+          executionRef: `exec_demo_${Date.now().toString(36)}`,
+          stepHashes: route.steps.map((step, index) =>
+            `tx_demo_${index}_${Math.abs(
+              [...`${route.routeRef}:${step.kind}:${index}`].reduce(
+                (acc, ch) => Math.imul(31, acc) + ch.charCodeAt(0),
+                0,
+              ),
+            )
+              .toString(36)
+              .slice(0, 10)}`,
+          ),
+        }
+      : await startExecutionFn({ data: route });
     const baseSteps: Step[] = route.steps.map((step, index) => ({
       label: step.label,
       status: "idle",
@@ -263,7 +277,9 @@ function AppPage() {
         text: `Done. ${route.intent.destinationAction ?? `${route.intent.amount} ${route.intent.destinationAsset}`} is on Solana. Anything else?`,
       },
     ]);
-    await completeExecutionFn({ data: receipt.executionRef });
+    if (!useFake) {
+      await completeExecutionFn({ data: receipt.executionRef });
+    }
     setBusy(false);
   }
 
@@ -843,4 +859,48 @@ function InputBar({
 
 function wait(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function parseIntentForDemo(text: string): ParsedIntentResult {
+  const rawText = text.trim();
+  const lower = rawText.toLowerCase();
+  const isGreeting = /^(hi|hello|hey|yo|sup|gm|gn|thanks|thank you|ok|okay)$/.test(lower);
+
+  if (isGreeting || rawText.length < 3) {
+    return {
+      intent: {
+        rawText,
+        amount: 0,
+        sourceChain: "Base",
+        sourceAsset: "USDC",
+        destinationChain: "Solana",
+        destinationAsset: "USDC",
+        confidence: 0.2,
+      },
+      provider: "heuristic",
+      actionable: false,
+      clarification:
+        "Tell me the amount, source chain/asset, and destination. Example: Move $50 USDC from Base to Solana.",
+    };
+  }
+
+  const amountMatch = rawText.match(/\$?([0-9]+(?:\.[0-9]+)?)/);
+  const amount = amountMatch ? Number.parseFloat(amountMatch[1]) : 50;
+  const sourceChain = lower.includes("base") ? "Base" : "Ethereum";
+  const sourceAsset = lower.includes("eth") ? "ETH" : "USDC";
+  const destinationAsset = lower.includes(" sol") || lower.endsWith("sol") ? "SOL" : "USDC";
+
+  return {
+    intent: {
+      rawText,
+      amount,
+      sourceChain,
+      sourceAsset,
+      destinationChain: "Solana",
+      destinationAsset,
+      confidence: 0.86,
+    },
+    provider: "heuristic",
+    actionable: true,
+  };
 }
