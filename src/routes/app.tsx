@@ -500,6 +500,8 @@ function Sidebar({
 }) {
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const effectiveBalance = (solBalance ?? 0) + simulatedBalance;
+  const shouldShowEffectiveBalance = useFake || simulatedBalance > 0;
 
   useEffect(() => {
     if (!connected || !walletAddress) {
@@ -553,8 +555,8 @@ function Sidebar({
                 SOL Balance
               </div>
               <div className="font-semibold">
-                {useFake ? (
-                  `${((solBalance ?? 0) + simulatedBalance).toFixed(4)} SOL`
+                {shouldShowEffectiveBalance ? (
+                  `${effectiveBalance.toFixed(4)} SOL`
                 ) : loadingBalance ? (
                   <span className="text-muted-foreground">Loading...</span>
                 ) : solBalance !== null ? (
