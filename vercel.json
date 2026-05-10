@@ -10,7 +10,7 @@
   },
   "rewrites": [
     {
-      "source": "/:path((?!.*\\.).*)",
+      "source": "/:path((?!api(?:/|$)|.*\\.).*)",
       "destination": "/api/entry"
     }
   ],

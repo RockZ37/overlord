@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { SiteNav } from "@/components/site-nav";
 import overlordLogo from "../../logo/overlord 1.jpeg";
 import { useEffect, useRef, useState } from "react";
@@ -61,10 +60,6 @@ type Message =
   | { id: string; role: "execution"; steps: Step[]; route: RoutePlan; executionRef: string };
 
 function AppPage() {
-  const parseIntent = useServerFn(parseIntentFn);
-  const planRoute = useServerFn(planRouteFn);
-  const startExecution = useServerFn(startExecutionFn);
-  const completeExecution = useServerFn(completeExecutionFn);
   const [useFake, setUseFake] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [pendingRouteForWallet, setPendingRouteForWallet] = useState<RoutePlan | null>(null);
@@ -104,7 +99,7 @@ function AppPage() {
 
     try {
       await wait(450);
-      const intentResult = await parseIntent({ data: text });
+      const intentResult = await parseIntentFn({ data: text });
       const intent = intentResult.intent;
 
       if (!intentResult.actionable) {
@@ -138,7 +133,7 @@ function AppPage() {
         const { buildMockRoute } = await import("@/lib/mocks");
         route = buildMockRoute(intent as ParsedIntent);
       } else {
-        route = await planRoute({ data: intent });
+        route = await planRouteFn({ data: intent });
       }
       setMessages((m) => [
         ...m,
@@ -185,7 +180,7 @@ function AppPage() {
       setShowWalletModal(true);
       return;
     }
-    const receipt = await startExecution({ data: route });
+    const receipt = await startExecutionFn({ data: route });
     const baseSteps: Step[] = route.steps.map((step, index) => ({
       label: step.label,
       status: "idle",
@@ -268,7 +263,7 @@ function AppPage() {
         text: `Done. ${route.intent.destinationAction ?? `${route.intent.amount} ${route.intent.destinationAsset}`} is on Solana. Anything else?`,
       },
     ]);
-    await completeExecution({ data: receipt.executionRef });
+    await completeExecutionFn({ data: receipt.executionRef });
     setBusy(false);
   }
 
@@ -280,7 +275,7 @@ function AppPage() {
 
     // proceed with existing confirmRoute flow for real execution
     // startExecution + UI updates
-    const receipt = await startExecution({ data: route });
+    const receipt = await startExecutionFn({ data: route });
     const baseSteps: Step[] = route.steps.map((step, index) => ({
       label: step.label,
       status: "idle",
@@ -363,7 +358,7 @@ function AppPage() {
         text: `Done. ${route.intent.destinationAction ?? `${route.intent.amount} ${route.intent.destinationAsset}`} is on Solana. Anything else?`,
       },
     ]);
-    await completeExecution({ data: receipt.executionRef });
+    await completeExecutionFn({ data: receipt.executionRef });
     // Update balance if in demo mode
     if (useFake) {
       setSimulatedBalance((prev) => prev + route.intent.amount);
@@ -455,8 +450,12 @@ function WalletConfirmModal({
           <div className="font-semibold">${route.estimatedFeesUsd?.toFixed(2) ?? "—"}</div>
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="rounded-md px-4 py-2 border border-border">Cancel</button>
-          <button onClick={onConfirm} className="rounded-md bg-primary px-4 py-2 text-background">Confirm</button>
+          <button onClick={onCancel} className="rounded-md px-4 py-2 border border-border">
+            Cancel
+          </button>
+          <button onClick={onConfirm} className="rounded-md bg-primary px-4 py-2 text-background">
+            Confirm
+          </button>
         </div>
       </div>
     </div>

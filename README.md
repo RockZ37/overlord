@@ -2,7 +2,7 @@
 
 > AI-driven cross-chain intent executor: bridge, swap and land liquidity into Solana with a single sentence.
 
-This repository contains the frontend and Anchor program wiring for Project Overlord. The frontend is a Vite + React app with server entry points for edge deployment. The Anchor Rust program `overlord` provides an on-chain intent registry.
+This repository contains the frontend and Anchor program wiring for Project Overlord. The frontend talks to backend API routes over HTTP, and the Anchor Rust program `overlord` provides an on-chain intent registry.
 
 ---
 
@@ -74,6 +74,7 @@ cp .env.example .env.local
 Important vars:
 - `VITE_OVERLORD_PROGRAM_ID` — the on-chain program id the frontend uses. Default value in this repo:
   - `AoC6gRnhkN8TpueJoNpwXA9i47zYg5QpUu3voTL9284R` (declared in the program and present in `.env.example` / `.env.local`).
+- `VITE_API_BASE_URL` — optional backend base URL. Leave empty to call same-origin API routes, or set this to a separate backend deployment URL.
 - `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` — AI provider keys used by the parser.
 - LI.FI settings: `LIFI_API_BASE_URL`, `LIFI_FROM_ADDRESS`, `LIFI_SOLANA_CHAIN_ID`, `LIFI_TO_ADDRESS`.
 
