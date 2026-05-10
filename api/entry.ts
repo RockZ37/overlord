@@ -1,6 +1,21 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import server from "../src/server";
+type ServerEntry = {
+  fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
+};
+
+let serverPromise: Promise<ServerEntry> | undefined;
+
+async function getServerEntry(): Promise<ServerEntry> {
+  if (!serverPromise) {
+    serverPromise = import("../src/server").then((m) => {
+      const entry = m as { default?: ServerEntry };
+      return entry.default ?? (m as unknown as ServerEntry);
+    });
+  }
+
+  return serverPromise;
+}
 
 function getRequestUrl(request: IncomingMessage): string {
   const protocolHeader = request.headers["x-forwarded-proto"];
@@ -62,6 +77,7 @@ async function toRequest(request: IncomingMessage): Promise<Request> {
 export default async function handler(request: IncomingMessage, response: ServerResponse) {
   try {
     const webRequest = await toRequest(request);
+    const server = await getServerEntry();
     const webResponse = await server.fetch(webRequest, {}, {});
 
     response.statusCode = webResponse.status;
