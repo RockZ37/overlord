@@ -14,6 +14,7 @@ target
 .anchor/
 .output
 .vinxi
+.vercel/
 .tanstack/**
 .nitro
 *.local

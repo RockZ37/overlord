@@ -1,6 +1,5 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist/client",
   "installCommand": "npm install",
   "env": {
     "VITE_OVERLORD_PROGRAM_ID": "AoC6gRnhkN8TpueJoNpwXA9i47zYg5QpUu3voTL9284R",
@@ -8,12 +7,6 @@
     "FAKE_EXECUTION": "false",
     "AI_PROVIDER": "gemini"
   },
-  "rewrites": [
-    {
-      "source": "/:path((?!api(?:/|$)|.*\\.).*)",
-      "destination": "/api/entry"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
