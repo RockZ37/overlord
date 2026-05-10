@@ -261,6 +261,8 @@ function AppPage() {
     } catch {
       // Best effort: local fallback receipts have no server-side ledger entry.
     }
+    // Update simulated balance after successful execution
+    setSimulatedBalance((prev) => prev + route.intent.amount);
     setBusy(false);
   }
 
@@ -360,10 +362,8 @@ function AppPage() {
     } catch {
       // Best effort: local fallback receipts have no server-side ledger entry.
     }
-    // Update balance if in demo mode
-    if (useFake) {
-      setSimulatedBalance((prev) => prev + route.intent.amount);
-    }
+    // Update simulated balance after successful execution
+    setSimulatedBalance((prev) => prev + route.intent.amount);
     setBusy(false);
   }
 
