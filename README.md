@@ -1,4 +1,4 @@
-# Project Overlord — Lovable Frontend
+# Project Overlord 
 
 > AI-driven cross-chain intent executor: bridge, swap and land liquidity into Solana with a single sentence.
 
