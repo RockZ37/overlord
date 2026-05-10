@@ -17,10 +17,6 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverPromise;
 }
 
-export const config = {
-  runtime: "nodejs",
-};
-
 function getRequestUrl(request: IncomingMessage): string {
   const protocolHeader = request.headers["x-forwarded-proto"];
   const protocol = Array.isArray(protocolHeader) ? protocolHeader[0] : (protocolHeader ?? "https");
