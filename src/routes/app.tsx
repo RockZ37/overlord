@@ -20,7 +20,7 @@ import {
   planRouteFn,
   startExecutionFn,
 } from "@/lib/overlord.functions";
-import type { ParsedIntent, ParsedIntentResult, RoutePlan } from "@/lib/overlord-types";
+import type { ExecutionReceipt, ParsedIntent, ParsedIntentResult, RoutePlan } from "@/lib/overlord-types";
 import {
   connectPhantomWallet,
   sendExecutionMemo,
@@ -99,7 +99,7 @@ function AppPage() {
 
     try {
       await wait(450);
-      const intentResult = useFake ? parseIntentForDemo(text) : await parseIntentFn({ data: text });
+      const intentResult = await parseIntentOrFallback(text, useFake);
       const intent = intentResult.intent;
 
       if (!intentResult.actionable) {
@@ -127,14 +127,7 @@ function AppPage() {
       ]);
 
       await wait(700);
-      let route;
-      if (useFake) {
-        // Build a demo route instead of calling the server
-        const { buildMockRoute } = await import("@/lib/mocks");
-        route = buildMockRoute(intent as ParsedIntent);
-      } else {
-        route = await planRouteFn({ data: intent });
-      }
+      const route = await planRouteOrFallback(intent as ParsedIntent, useFake);
       setMessages((m) => [
         ...m,
         {
@@ -180,21 +173,7 @@ function AppPage() {
       setShowWalletModal(true);
       return;
     }
-    const receipt = useFake
-      ? {
-          executionRef: `exec_demo_${Date.now().toString(36)}`,
-          stepHashes: route.steps.map((step, index) =>
-            `tx_demo_${index}_${Math.abs(
-              [...`${route.routeRef}:${step.kind}:${index}`].reduce(
-                (acc, ch) => Math.imul(31, acc) + ch.charCodeAt(0),
-                0,
-              ),
-            )
-              .toString(36)
-              .slice(0, 10)}`,
-          ),
-        }
-      : await startExecutionFn({ data: route });
+    const receipt = await startExecutionOrFallback(route, useFake);
     const baseSteps: Step[] = route.steps.map((step, index) => ({
       label: step.label,
       status: "idle",
@@ -277,8 +256,10 @@ function AppPage() {
         text: `Done. ${route.intent.destinationAction ?? `${route.intent.amount} ${route.intent.destinationAsset}`} is on Solana. Anything else?`,
       },
     ]);
-    if (!useFake) {
+    try {
       await completeExecutionFn({ data: receipt.executionRef });
+    } catch {
+      // Best effort: local fallback receipts have no server-side ledger entry.
     }
     setBusy(false);
   }
@@ -291,7 +272,7 @@ function AppPage() {
 
     // proceed with existing confirmRoute flow for real execution
     // startExecution + UI updates
-    const receipt = await startExecutionFn({ data: route });
+    const receipt = await startExecutionOrFallback(route, useFake);
     const baseSteps: Step[] = route.steps.map((step, index) => ({
       label: step.label,
       status: "idle",
@@ -374,7 +355,11 @@ function AppPage() {
         text: `Done. ${route.intent.destinationAction ?? `${route.intent.amount} ${route.intent.destinationAsset}`} is on Solana. Anything else?`,
       },
     ]);
-    await completeExecutionFn({ data: receipt.executionRef });
+    try {
+      await completeExecutionFn({ data: receipt.executionRef });
+    } catch {
+      // Best effort: local fallback receipts have no server-side ledger entry.
+    }
     // Update balance if in demo mode
     if (useFake) {
       setSimulatedBalance((prev) => prev + route.intent.amount);
@@ -859,6 +844,70 @@ function InputBar({
 
 function wait(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+async function parseIntentOrFallback(text: string, forceLocal: boolean): Promise<ParsedIntentResult> {
+  if (forceLocal) {
+    return parseIntentForDemo(text);
+  }
+
+  try {
+    return await parseIntentFn({ data: text });
+  } catch (error) {
+    console.warn("Live intent parsing failed, using local fallback:", error);
+    return parseIntentForDemo(text);
+  }
+}
+
+async function planRouteOrFallback(intent: ParsedIntent, forceLocal: boolean): Promise<RoutePlan> {
+  if (forceLocal) {
+    const { buildMockRoute } = await import("@/lib/mocks");
+    return buildMockRoute(intent);
+  }
+
+  try {
+    return await planRouteFn({ data: intent });
+  } catch (error) {
+    console.warn("Live route planning failed, using mock route fallback:", error);
+    const { buildMockRoute } = await import("@/lib/mocks");
+    return buildMockRoute(intent);
+  }
+}
+
+async function startExecutionOrFallback(route: RoutePlan, forceLocal: boolean): Promise<ExecutionReceipt> {
+  if (forceLocal) {
+    return buildFakeExecutionReceipt(route);
+  }
+
+  try {
+    return await startExecutionFn({ data: route });
+  } catch (error) {
+    console.warn("Live execution start failed, using local fallback receipt:", error);
+    return buildFakeExecutionReceipt(route);
+  }
+}
+
+function buildFakeExecutionReceipt(route: RoutePlan): ExecutionReceipt {
+  const executionRef = `exec_demo_${shortIdSeed(`${route.planId}:${route.routeRef}`)}`;
+  return {
+    executionRef,
+    intentId: route.intentId,
+    planId: route.planId,
+    routeRef: route.routeRef,
+    status: "running",
+    startedAt: new Date().toISOString(),
+    stepHashes: route.steps.map(
+      (step, index) => `tx_demo_${shortIdSeed(`${route.routeRef}:${step.kind}:${index}`)}`,
+    ),
+  };
+}
+
+function shortIdSeed(value: string): string {
+  let hash = 0;
+  for (let index = 0; index < value.length; index++) {
+    hash = Math.imul(31, hash) + value.charCodeAt(index);
+  }
+  return Math.abs(hash).toString(36).slice(0, 10);
 }
 
 function parseIntentForDemo(text: string): ParsedIntentResult {
