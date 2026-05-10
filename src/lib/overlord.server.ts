@@ -8,6 +8,15 @@ import type {
   RouteStepKind,
 } from "./overlord-types";
 
+type RuntimeEnv = Record<string, string | undefined>;
+
+function getRuntimeEnv(): RuntimeEnv {
+  const maybeProcess = (globalThis as { process?: { env?: RuntimeEnv } }).process;
+  return maybeProcess?.env ?? {};
+}
+
+const ENV = getRuntimeEnv();
+
 const SOURCE_CHAIN_KEYWORDS: Array<[string, string]> = [
   ["arbitrum", "Arbitrum"],
   ["optimism", "Optimism"],
@@ -33,22 +42,22 @@ const ACTION_KEYWORDS: Array<[string, string]> = [
   ["pump fun", "Buy on Pump.fun"],
 ];
 
-const LIFI_API_BASE_URL = process.env.LIFI_API_BASE_URL ?? "https://li.quest";
+const LIFI_API_BASE_URL = ENV.LIFI_API_BASE_URL ?? "https://li.quest";
 const LIFI_FROM_ADDRESS =
-  process.env.LIFI_FROM_ADDRESS ?? "0x0000000000000000000000000000000000000001";
+  ENV.LIFI_FROM_ADDRESS ?? "0x0000000000000000000000000000000000000001";
 const BASE_CHAIN_ID = 8453;
 const LEGACY_SOLANA_CHAIN_ID = "1151111081";
 const SOLANA_CHAIN_ID = Number(
-  process.env.LIFI_SOLANA_CHAIN_ID?.trim() === LEGACY_SOLANA_CHAIN_ID
+  ENV.LIFI_SOLANA_CHAIN_ID?.trim() === LEGACY_SOLANA_CHAIN_ID
     ? "1151111081099710"
-    : (process.env.LIFI_SOLANA_CHAIN_ID ?? "1151111081099710"),
+    : (ENV.LIFI_SOLANA_CHAIN_ID ?? "1151111081099710"),
 );
-const LIFI_TO_ADDRESS = process.env.LIFI_TO_ADDRESS?.trim() ?? "11111111111111111111111111111111";
-const AI_PROVIDER = process.env.AI_PROVIDER?.trim().toLowerCase();
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY?.trim();
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL?.trim() ?? "claude-3-5-sonnet-latest";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY?.trim();
-const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() ?? "gemini-1.5-flash";
+const LIFI_TO_ADDRESS = ENV.LIFI_TO_ADDRESS?.trim() ?? "11111111111111111111111111111111";
+const AI_PROVIDER = ENV.AI_PROVIDER?.trim().toLowerCase();
+const ANTHROPIC_API_KEY = ENV.ANTHROPIC_API_KEY?.trim();
+const ANTHROPIC_MODEL = ENV.ANTHROPIC_MODEL?.trim() ?? "claude-3-5-sonnet-latest";
+const GEMINI_API_KEY = ENV.GEMINI_API_KEY?.trim();
+const GEMINI_MODEL = ENV.GEMINI_MODEL?.trim() ?? "gemini-1.5-flash";
 
 const TOKEN_ADDRESSES: Record<string, Record<string, { address: string; decimals: number }>> = {
   Base: {
@@ -186,7 +195,7 @@ export async function completeExecution(executionRef: string): Promise<Execution
 async function fetchLifiQuote(intent: ParsedIntent): Promise<unknown | null> {
   // Support demo execution mode for local testing.
   // Enable by setting environment variable `FAKE_EXECUTION=true` in the server env.
-  if (process.env.FAKE_EXECUTION === "true") {
+  if (ENV.FAKE_EXECUTION === "true") {
     // Build a lightweight quote with the fields `buildRoutePlan` expects.
     const routeId = `route_${shortId(`${intent.sourceChain}:${intent.sourceAsset}->${intent.destinationChain}:${intent.destinationAsset}:${intent.amount}`)}`;
     const response = {

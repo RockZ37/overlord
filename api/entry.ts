@@ -67,7 +67,7 @@ async function toRequest(request: IncomingMessage): Promise<Request> {
   };
 
   if (body !== undefined) {
-    init.body = body;
+    init.body = new Uint8Array(body);
     init.duplex = "half";
   }
 
