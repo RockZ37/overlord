@@ -3,10 +3,10 @@
   "outputDirectory": "dist/client",
   "installCommand": "npm install",
   "env": {
-    "VITE_OVERLORD_PROGRAM_ID": "@vite_overlord_program_id",
-    "VITE_FAKE_EXECUTION": "@vite_fake_execution",
-    "FAKE_EXECUTION": "@fake_execution",
-    "AI_PROVIDER": "@ai_provider"
+    "VITE_OVERLORD_PROGRAM_ID": "AoC6gRnhkN8TpueJoNpwXA9i47zYg5QpUu3voTL9284R",
+    "VITE_FAKE_EXECUTION": "false",
+    "FAKE_EXECUTION": "false",
+    "AI_PROVIDER": "gemini"
   },
   "rewrites": [
     {
