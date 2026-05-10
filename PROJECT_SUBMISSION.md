@@ -24,11 +24,11 @@ An AI-powered intent execution layer that eliminates friction in cross-chain onb
 - **Framework:** Anchor + Rust
 - **Network:** Solana Devnet
 - **Program ID:** `AoC6gRnhkN8TpueJoNpwXA9i47zYg5QpUu3voTL9284R`
-- **Repository:** [{{GITHUB_REPO_URL}}]({{GITHUB_REPO_URL}})
+- **Repository:** https://github.com/RockZ37/overlord.git
 - **Build Instructions:** See [README.md](./README.md) section "Building & Deploying the Anchor Program"
 
 ### ✅ Public Repository
-- **Repo Link:** [{{GITHUB_REPO_NAME}}]({{GITHUB_REPO_URL}})
+- **Repo Link:**https://github.com/RockZ37/overlord.git
 - **License:** MIT
 - **Branch:** `main`
 
