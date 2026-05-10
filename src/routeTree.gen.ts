@@ -11,6 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiStartExecutionRouteImport } from './routes/api/start-execution'
+import { Route as ApiPlanRouteRouteImport } from './routes/api/plan-route'
+import { Route as ApiParseIntentRouteImport } from './routes/api/parse-intent'
+import { Route as ApiCompleteExecutionRouteImport } from './routes/api/complete-execution'
 
 const AppRoute = AppRouteImport.update({
   id: '/app',
@@ -22,31 +26,86 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStartExecutionRoute = ApiStartExecutionRouteImport.update({
+  id: '/api/start-execution',
+  path: '/api/start-execution',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPlanRouteRoute = ApiPlanRouteRouteImport.update({
+  id: '/api/plan-route',
+  path: '/api/plan-route',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiParseIntentRoute = ApiParseIntentRouteImport.update({
+  id: '/api/parse-intent',
+  path: '/api/parse-intent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCompleteExecutionRoute = ApiCompleteExecutionRouteImport.update({
+  id: '/api/complete-execution',
+  path: '/api/complete-execution',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/api/complete-execution': typeof ApiCompleteExecutionRoute
+  '/api/parse-intent': typeof ApiParseIntentRoute
+  '/api/plan-route': typeof ApiPlanRouteRoute
+  '/api/start-execution': typeof ApiStartExecutionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/api/complete-execution': typeof ApiCompleteExecutionRoute
+  '/api/parse-intent': typeof ApiParseIntentRoute
+  '/api/plan-route': typeof ApiPlanRouteRoute
+  '/api/start-execution': typeof ApiStartExecutionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/api/complete-execution': typeof ApiCompleteExecutionRoute
+  '/api/parse-intent': typeof ApiParseIntentRoute
+  '/api/plan-route': typeof ApiPlanRouteRoute
+  '/api/start-execution': typeof ApiStartExecutionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/api/complete-execution'
+    | '/api/parse-intent'
+    | '/api/plan-route'
+    | '/api/start-execution'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app'
-  id: '__root__' | '/' | '/app'
+  to:
+    | '/'
+    | '/app'
+    | '/api/complete-execution'
+    | '/api/parse-intent'
+    | '/api/plan-route'
+    | '/api/start-execution'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/api/complete-execution'
+    | '/api/parse-intent'
+    | '/api/plan-route'
+    | '/api/start-execution'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
+  ApiCompleteExecutionRoute: typeof ApiCompleteExecutionRoute
+  ApiParseIntentRoute: typeof ApiParseIntentRoute
+  ApiPlanRouteRoute: typeof ApiPlanRouteRoute
+  ApiStartExecutionRoute: typeof ApiStartExecutionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +124,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/start-execution': {
+      id: '/api/start-execution'
+      path: '/api/start-execution'
+      fullPath: '/api/start-execution'
+      preLoaderRoute: typeof ApiStartExecutionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/plan-route': {
+      id: '/api/plan-route'
+      path: '/api/plan-route'
+      fullPath: '/api/plan-route'
+      preLoaderRoute: typeof ApiPlanRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parse-intent': {
+      id: '/api/parse-intent'
+      path: '/api/parse-intent'
+      fullPath: '/api/parse-intent'
+      preLoaderRoute: typeof ApiParseIntentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/complete-execution': {
+      id: '/api/complete-execution'
+      path: '/api/complete-execution'
+      fullPath: '/api/complete-execution'
+      preLoaderRoute: typeof ApiCompleteExecutionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
+  ApiCompleteExecutionRoute: ApiCompleteExecutionRoute,
+  ApiParseIntentRoute: ApiParseIntentRoute,
+  ApiPlanRouteRoute: ApiPlanRouteRoute,
+  ApiStartExecutionRoute: ApiStartExecutionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
